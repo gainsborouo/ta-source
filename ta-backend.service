@@ -1,0 +1,13 @@
+[Unit]
+Description=Gunicorn instance to serve TA System Backend
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/ta-source/backend
+Environment="PATH=/var/www/ta-source/backend/.venv/bin"
+ExecStart=/var/www/ta-source/backend/.venv/bin/gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8001
+
+[Install]
+WantedBy=multi-user.target

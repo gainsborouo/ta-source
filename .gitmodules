@@ -1,0 +1,8 @@
+[submodule "backend/app/static/logs/co-113"]
+	path = backend/app/static/logs/co-113
+	url = git@github.com:gainsborouo/NYCU_Computer-Organization-TA-113.git
+	branch = logs
+[submodule "backend/app/static/logs/ccna-113"]
+	path = backend/app/static/logs/ccna-113
+	url = git@github.com:gainsborouo/NYCU_CCNA-TA-113.git
+	branch = logs
