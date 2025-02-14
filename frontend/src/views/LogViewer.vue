@@ -14,7 +14,7 @@
             id="course"
             v-model="selectedCourse"
             @change="fetchLogList"
-            class="p-2 border border-gray-400 rounded bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+            class="p-2 border border-gray-400 rounded bg-gray-100 focus:outline-none"
           >
             <option disabled value="">Please select a course</option>
             <option
@@ -37,7 +37,7 @@
             @keyup.enter="fetchLogList"
             type="text"
             placeholder="Please enter student ID"
-            class="p-2 border border-gray-400 rounded bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+            class="p-2 border border-gray-400 rounded bg-gray-100 focus:outline-none"
           />
           <button
             @click="fetchLogList"
