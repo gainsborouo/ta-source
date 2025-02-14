@@ -7,19 +7,45 @@
         Log Viewer
       </h2>
 
-      <div class="my-6">
-        <label for="course" class="mr-2 font-semibold">Select Course:</label>
-        <select
-          id="course"
-          v-model="selectedCourse"
-          @change="fetchLogList"
-          class="p-2 border border-gray-400 rounded bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500"
-        >
-          <option disabled value="">Please select a course</option>
-          <option v-for="course in courses" :key="course.id" :value="course.id">
-            {{ course.id }}
-          </option>
-        </select>
+      <div class="flex items-center space-x-4 my-6">
+        <div>
+          <label for="course" class="mr-2 font-semibold">Select Course:</label>
+          <select
+            id="course"
+            v-model="selectedCourse"
+            @change="fetchLogList"
+            class="p-2 border border-gray-400 rounded bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+          >
+            <option disabled value="">Please select a course</option>
+            <option
+              v-for="course in courses"
+              :key="course.id"
+              :value="course.id"
+            >
+              {{ course.id }}
+            </option>
+          </select>
+        </div>
+
+        <div v-if="isAdmin">
+          <label for="search-student" class="mr-2 font-semibold"
+            >Student ID:</label
+          >
+          <input
+            id="search-student"
+            v-model="searchStudentId"
+            @keyup.enter="fetchLogList"
+            type="text"
+            placeholder="Please enter student ID"
+            class="p-2 border border-gray-400 rounded bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+          />
+          <button
+            @click="fetchLogList"
+            class="ml-2 p-2 border border-gray-500 text-gray-500 rounded transition-colors duration-200 hover:bg-gray-100 transform hover:scale-105"
+          >
+            Search
+          </button>
+        </div>
       </div>
 
       <div v-if="logList.length">
@@ -49,8 +75,8 @@
         <pre
           v-else
           class="border border-gray-300 p-4 bg-white rounded overflow-x-auto whitespace-pre-wrap text-sm"
-          >{{ fileContent }}
-        </pre>
+          >{{ fileContent }}</pre
+        >
       </div>
 
       <div v-if="error" class="mt-4 text-red-500">
@@ -75,16 +101,20 @@ export default {
     const fileContent = ref("");
     const error = ref("");
     const selectedLogFile = ref("");
+    const searchStudentId = ref("");
 
-    const studentId = computed(() => {
-      if (!authStore.token) return "";
+    const jwtPayload = computed(() => {
+      if (!authStore.token) return {};
       try {
-        const payload = JSON.parse(atob(authStore.token.split(".")[1]));
-        return payload.sub;
+        const base64Payload = authStore.token.split(".")[1];
+        return JSON.parse(atob(base64Payload));
       } catch (e) {
-        return "";
+        return {};
       }
     });
+
+    const isAdmin = computed(() => jwtPayload.value.admin === true);
+    const studentId = computed(() => jwtPayload.value.sub || "");
 
     const isHTML = computed(() => {
       return selectedLogFile.value.toLowerCase().endsWith(".html");
@@ -93,18 +123,18 @@ export default {
     watch(selectedCourse, () => {
       fileContent.value = "";
       selectedLogFile.value = "";
+      error.value = "";
     });
 
     const fetchCourses = async () => {
       try {
         const response = await axios.get(`${apiBase}/courses`, {
-          headers: {
-            Authorization: `Bearer ${authStore.token}`,
-          },
+          headers: { Authorization: `Bearer ${authStore.token}` },
         });
         courses.value = response.data;
-      } catch (error) {
-        console.error("Failed to fetch courses", error);
+      } catch (err) {
+        console.error("Failed to fetch courses", err);
+        error.value = "Failed to fetch courses.";
       }
     };
 
@@ -114,23 +144,32 @@ export default {
         return;
       }
       error.value = "";
+      logList.value = [];
+      fileContent.value = "";
+      selectedLogFile.value = "";
+
       try {
-        const response = await axios.get(
-          `${apiBase}/courses/${selectedCourse.value}/logs`,
-          {
-            headers: {
-              Authorization: `Bearer ${authStore.token}`,
-            },
+        let url = `${apiBase}/courses/${selectedCourse.value}/logs`;
+        if (isAdmin.value && searchStudentId.value) {
+          url += `?student_id=${searchStudentId.value}`;
+        }
+
+        const response = await axios.get(url, {
+          headers: { Authorization: `Bearer ${authStore.token}` },
+        });
+        if (Array.isArray(response.data)) {
+          if (response.data.length === 0) {
+            error.value = isAdmin.value
+              ? "No logs found for that student ID."
+              : `No logs found for student id: ${studentId.value}.`;
+          } else {
+            logList.value = response.data;
           }
-        );
-        if (response.data && response.data.length === 0) {
-          error.value = `No logs found for student id: ${studentId.value}`;
-          logList.value = [];
         } else {
-          logList.value = response.data;
+          error.value = "Unexpected response data.";
         }
       } catch (err) {
-        console.error(err);
+        console.error("Failed to fetch log list", err);
         error.value =
           (err.response && err.response.data.detail) ||
           "Failed to fetch log list.";
@@ -144,14 +183,13 @@ export default {
         return;
       }
       selectedLogFile.value = logFile;
+      error.value = "";
 
       try {
         const response = await axios.get(
           `${apiBase}/courses/${selectedCourse.value}/logs/${logFile}`,
           {
-            headers: {
-              Authorization: `Bearer ${authStore.token}`,
-            },
+            headers: { Authorization: `Bearer ${authStore.token}` },
           }
         );
         fileContent.value = response.data.content;
@@ -172,6 +210,8 @@ export default {
       fileContent,
       error,
       selectedLogFile,
+      searchStudentId,
+      isAdmin,
       studentId,
       isHTML,
       fetchLogList,
