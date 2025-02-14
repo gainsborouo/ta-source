@@ -54,7 +54,7 @@
           <button
             v-if="!isTokenReceived"
             @click="OAuthLogin"
-            class="w-full border border-cyan-600 text-cyan-600 font-bold py-2 px-4 rounded transition-colors duration-200 hover:bg-gray-100 flex items-center justify-center transform hover:scale-105"
+            class="w-full border border-cyan-700 text-cyan-700 font-bold py-2 px-4 rounded transition-colors duration-200 hover:bg-gray-100 flex items-center justify-center transform hover:scale-105"
           >
             <img
               src="/images/nycu-oauth.svg"
