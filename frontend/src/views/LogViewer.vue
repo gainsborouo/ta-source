@@ -70,7 +70,7 @@
         <div
           v-if="isHTML"
           class="border border-gray-300 p-4 bg-white rounded overflow-x-auto restore-padding"
-          v-html="fileContent"
+          v-html="sanitizedContent"
         ></div>
         <pre
           v-else
@@ -88,6 +88,7 @@
 
 <script>
 import axios from "axios";
+import DOMPurify from "dompurify";
 import { computed, ref, watch } from "vue";
 import { authStore } from "../store/auth";
 
@@ -118,6 +119,15 @@ export default {
 
     const isHTML = computed(() => {
       return selectedLogFile.value.toLowerCase().endsWith(".html");
+    });
+
+    const sanitizedContent = computed(() => {
+      if (!isHTML.value || !fileContent.value) {
+        return "";
+      }
+      return DOMPurify.sanitize(fileContent.value, {
+        USE_PROFILES: { html: true },
+      });
     });
 
     watch(selectedCourse, () => {
@@ -214,6 +224,7 @@ export default {
       isAdmin,
       studentId,
       isHTML,
+      sanitizedContent,
       fetchLogList,
       loadLog,
     };
