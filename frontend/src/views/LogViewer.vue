@@ -7,14 +7,16 @@
         Log Viewer
       </h2>
 
-      <div class="flex items-center space-x-4 my-6">
-        <div>
+      <div
+        class="flex flex-col md:flex-row md:items-center space-y-4 md:space-y-0 md:space-x-4 my-6"
+      >
+        <div class="w-full md:w-auto">
           <label for="course" class="mr-2 font-semibold">Select Course:</label>
           <select
             id="course"
             v-model="selectedCourse"
             @change="fetchLogList"
-            class="p-2 border border-gray-400 rounded bg-gray-100 focus:outline-none"
+            class="w-full md:w-auto p-2 border border-gray-400 rounded bg-gray-100 focus:outline-none"
           >
             <option disabled value="">Please select a course</option>
             <option
@@ -27,7 +29,10 @@
           </select>
         </div>
 
-        <div v-if="isAdmin">
+        <div
+          v-if="isAdmin"
+          class="w-full md:w-auto flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2"
+        >
           <label for="search-student" class="mr-2 font-semibold"
             >Student ID:</label
           >
@@ -37,11 +42,11 @@
             @keyup.enter="fetchLogList"
             type="text"
             placeholder="Please enter student ID"
-            class="p-2 border border-gray-400 rounded bg-gray-100 focus:outline-none"
+            class="w-full sm:w-auto p-2 border border-gray-400 rounded bg-gray-100 focus:outline-none"
           />
           <button
             @click="fetchLogList"
-            class="ml-2 p-2 border border-gray-500 text-gray-500 rounded transition-colors duration-200 hover:bg-gray-100 transform hover:scale-105"
+            class="p-2 border border-gray-500 text-gray-500 rounded transition-colors duration-200 hover:bg-gray-100 transform hover:scale-105"
           >
             Search
           </button>
@@ -74,9 +79,10 @@
         ></div>
         <pre
           v-else
-          class="border border-gray-300 p-4 bg-white rounded overflow-x-auto whitespace-pre-wrap text-sm"
-          >{{ fileContent }}</pre
+          class="border border-gray-300 p-4 bg-white rounded overflow-x-auto whitespace-pre-line text-sm"
         >
+          {{ fileContent }}
+        </pre>
       </div>
 
       <div v-if="error" class="mt-4 text-red-500">
