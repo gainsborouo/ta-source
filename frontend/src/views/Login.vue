@@ -69,7 +69,7 @@
             class="mt-4 w-full border border-cyan-700 text-cyan-700 font-bold py-2 px-4 rounded transition-colors duration-200 hover:bg-gray-100 flex items-center justify-center transform hover:scale-105"
           >
             <img
-              src="/images/nycu-oauth.svg"
+              src="/images/csit-oauth.svg"
               alt="CSIT Logo"
               class="w-6 h-6 mr-1"
             />
