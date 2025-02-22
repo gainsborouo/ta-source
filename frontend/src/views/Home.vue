@@ -50,7 +50,7 @@
       <div v-else class="my-6">
         <p class="mb-4">
           You are not logged in. Please go to the
-          <router-link to="/login" class="text-blue-600 underline"
+          <router-link to="/login" class="underline"
             >Login</router-link
           >
           page.
