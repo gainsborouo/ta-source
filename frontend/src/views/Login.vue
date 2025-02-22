@@ -53,7 +53,7 @@
         <div class="mt-6 text-center">
           <button
             v-if="!isTokenReceived"
-            @click="OAuthLogin"
+            @click="NYCUOAuthLogin"
             class="w-full border border-cyan-700 text-cyan-700 font-bold py-2 px-4 rounded transition-colors duration-200 hover:bg-gray-100 flex items-center justify-center transform hover:scale-105"
           >
             <img
@@ -62,6 +62,18 @@
               class="w-6 h-6 mr-1"
             />
             NYCU OAuth
+          </button>
+          <button
+            v-if="!isTokenReceived"
+            @click="CSITOAuthLogin"
+            class="mt-4 w-full border border-cyan-700 text-cyan-700 font-bold py-2 px-4 rounded transition-colors duration-200 hover:bg-gray-100 flex items-center justify-center transform hover:scale-105"
+          >
+            <img
+              src="/images/nycu-oauth.svg"
+              alt="CSIT Logo"
+              class="w-6 h-6 mr-1"
+            />
+            CSIT OAuth
           </button>
           <p v-else class="mt-2 text-green-600 font-semibold">
             Login successful. Redirecting...
@@ -128,8 +140,12 @@ export default {
       }
     };
 
-    const OAuthLogin = () => {
-      window.location.href = `${apiBase}/oauth/login`;
+    const NYCUOAuthLogin = () => {
+      window.location.href = `${apiBase}/oauth/nycu/login`;
+    };
+
+    const CSITOAuthLogin = () => {
+      window.location.href = `${apiBase}/oauth/csit/login`;
     };
 
     return {
@@ -137,7 +153,8 @@ export default {
       password,
       isTokenReceived,
       localLogin,
-      OAuthLogin,
+      NYCUOAuthLogin,
+      CSITOAuthLogin,
     };
   },
 };

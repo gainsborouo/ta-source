@@ -106,29 +106,29 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
         "token_type": "bearer"
     }
 
-@router.get("/oauth/login")
-async def oauth_login():
+@router.get("/oauth/nycu/login")
+async def oauth_nycu_login():
     scopes = "profile"
     auth_url = (
-        f"{settings.AUTHORIZE_URL}"
-        f"?client_id={settings.CLIENT_ID}"
+        f"{settings.NYCU_AUTHORIZE_URL}"
+        f"?client_id={settings.NYCU_CLIENT_ID}"
         f"&response_type=code"
         f"&scope={scopes.replace(' ', '%20')}"
-        f"&redirect_uri={settings.REDIRECT_URI}"
+        f"&redirect_uri={settings.NYCU_REDIRECT_URI}"
     )
     return RedirectResponse(url=auth_url)
 
-@router.get("/oauth/callback")
-async def oauth_callback(code: str):
+@router.get("/oauth/nycu/callback")
+async def oauth_nycu_callback(code: str):
     async with httpx.AsyncClient(verify=False) as client:
         data = {
             "grant_type": "authorization_code",
             "code": code,
-            "client_id": settings.CLIENT_ID,
-            "client_secret": settings.CLIENT_SECRET,
-            "redirect_uri": settings.REDIRECT_URI,
+            "client_id": settings.NYCU_CLIENT_ID,
+            "client_secret": settings.NYCU_CLIENT_SECRET,
+            "redirect_uri": settings.NYCU_REDIRECT_URI,
         }
-        token_resp = await client.post(settings.TOKEN_URL, data=data)
+        token_resp = await client.post(settings.NYCU_TOKEN_URL, data=data)
     if token_resp.status_code != 200:
         raise HTTPException(status_code=token_resp.status_code, detail="Token exchange failed")
     token_data = token_resp.json()
@@ -138,7 +138,7 @@ async def oauth_callback(code: str):
     
     headers = {"Authorization": f"Bearer {access_token}"}
     async with httpx.AsyncClient(verify=False) as client:
-        profile_resp = await client.get(settings.PROFILE_URL, headers=headers)
+        profile_resp = await client.get(settings.NYCU_PROFILE_URL, headers=headers)
         
     if profile_resp.status_code != 200:
         raise HTTPException(status_code=400, detail="Failed to fetch user information")
@@ -150,6 +150,62 @@ async def oauth_callback(code: str):
         raise HTTPException(status_code=400, detail="Incomplete user information")
     
     save_user_to_db(student_id, "", user_email, local=False, admin=False)
+    user_in_db = get_user_from_db(student_id)
+    
+    payload = {
+        "sub": user_in_db["username"],
+        "admin": bool(user_in_db["admin"]),
+        "exp": int(time.time()) + settings.ACCESS_TOKEN_EXPIRE_SECONDS,
+    }
+    our_jwt_token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
+    
+    front_end_redirect_url = f"{settings.FRONTEND_URL}{settings.FRONTEND_REDIRECT_PATH}?token={our_jwt_token}"
+    return RedirectResponse(url=front_end_redirect_url)
+
+@router.get("/oauth/csit/login")
+async def oauth_csit_login():
+    scopes = "csid"
+    auth_url = (
+        f"{settings.CSIT_AUTHORIZE_URL}"
+        f"?client_id={settings.CSIT_CLIENT_ID}"
+        f"&response_type=code"
+        f"&scope={scopes.replace(' ', '%20')}"
+        f"&redirect_uri={settings.CSIT_REDIRECT_URI}"
+    )
+    return RedirectResponse(url=auth_url)
+
+@router.get("/oauth/csit/callback")
+async def oauth_csit_callback(code: str):
+    async with httpx.AsyncClient(verify=False) as client:
+        data = {
+            "grant_type": "authorization_code",
+            "code": code,
+            "client_id": settings.CSIT_CLIENT_ID,
+            "client_secret": settings.CSIT_CLIENT_SECRET,
+            "redirect_uri": settings.CSIT_REDIRECT_URI,
+        }
+        token_resp = await client.post(settings.CSIT_TOKEN_URL, data=data)
+    if token_resp.status_code != 200:
+        raise HTTPException(status_code=token_resp.status_code, detail="Token exchange failed")
+    token_data = token_resp.json()
+    access_token = token_data.get("access_token")
+    if not access_token:
+        raise HTTPException(status_code=400, detail="No access token received from OAuth provider")
+    
+    headers = {"Authorization": f"Bearer {access_token}"}
+    async with httpx.AsyncClient(verify=False) as client:
+        profile_resp = await client.get(settings.CSIT_PROFILE_URL, headers=headers)
+        
+    if profile_resp.status_code != 200:
+        raise HTTPException(status_code=400, detail="Failed to fetch user information")
+    profile_data = profile_resp.json()
+    
+    student_id = profile_data.get("csid")
+    
+    if not student_id:
+        raise HTTPException(status_code=400, detail="Incomplete user information")
+    
+    save_user_to_db(student_id, "", "", local=False, admin=False)
     user_in_db = get_user_from_db(student_id)
     
     payload = {
