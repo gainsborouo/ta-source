@@ -50,7 +50,7 @@ def get_courses_from_db(db: Session):
 
 @router.post("/login")
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = get_user_from_db(form_data.username)
+    user = get_user_from_db(form_data.username, db)
         
     if not user:
         raise HTTPException(
@@ -58,13 +58,13 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
             detail="Invalid username or password"
         )
     
-    if not user['local']:
+    if not user.local:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Local login not allowed"
         )
     
-    if not verify_password(form_data.password, user['password']):
+    if not verify_password(form_data.password, user.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password"
@@ -237,7 +237,7 @@ async def list_course_logs(
         pattern = os.path.join(logs_dir, f"*{current_user_id}*")
 
     files = glob.glob(pattern)
-    file_names = [os.path.basename(f) for f in files]
+    file_names = sorted([os.path.basename(f) for f in files])
     return file_names
 
 @router.get("/courses/{course}/logs/{filename}")
