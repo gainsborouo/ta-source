@@ -14,6 +14,8 @@ python3 -m venv .venv
 source .venv/bin/activate.fish
 pip install -r requirements.txt
 
+alembic revision --autogenerate -m "Add new field"
+alembic upgrade head
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
