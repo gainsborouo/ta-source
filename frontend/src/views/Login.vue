@@ -111,6 +111,11 @@ export default {
 
     const localLogin = async () => {
       try {
+        if (!username.value.trim() || !password.value.trim()) {
+          alert("Username and password cannot be empty.");
+          return;
+        }
+
         const formData = new URLSearchParams();
         formData.append("username", username.value);
         formData.append("password", password.value);
