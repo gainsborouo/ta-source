@@ -178,7 +178,7 @@ async def oauth_csit_login(request: Request):
     csrf_token = secrets.token_urlsafe(32)
     request.session['csrf_token'] = csrf_token
     
-    scopes = "csid"
+    scopes = "csid profile"
     auth_url = (
         f"{settings.CSIT_AUTHORIZE_URL}"
         f"?client_id={settings.CSIT_CLIENT_ID}"
@@ -230,11 +230,12 @@ async def oauth_csit_callback(
     profile_data = profile_resp.json()
     
     student_id = profile_data.get("csid")
+    uid = profile_data.get("uid")
     
-    if not student_id:
+    if not student_id or not uid:
         raise HTTPException(status_code=400, detail="Incomplete user information")
     
-    save_user_to_db(student_id, "", "", local=False, admin=False, db=db)
+    save_user_to_db(student_id, "", f"{uid}@cs.nycu.edu.tw", local=False, admin=False, db=db)
     user_in_db = get_user_from_db(student_id, db)
     
     payload = {
