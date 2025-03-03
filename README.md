@@ -1,25 +1,43 @@
 # ta-source
+A web-based system for teaching assistants and students to efficiently review homework logs.
+![Main Page](https://github.com/user-attachments/assets/958fffa9-6eca-4269-91e5-e58950271059)
 
-## Local Development
+## Quick Start
+
+### Frontend Setup
 ```sh
 cd frontend
 npm install
-npm install vue-router
-npm install axios
-npm install tailwindcss @tailwindcss/vite
 npm run dev
+```
 
+### Backend Setup
+```sh
 cd backend
 python3 -m venv .venv
-source .venv/bin/activate.fish
+source .venv/bin/activate
 pip install -r requirements.txt
-
-alembic revision --autogenerate -m "Add new field"
-alembic upgrade head
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-## Deployment
+### Database Setup
+```sh
+cd backend
+# alembic revision --autogenerate -m "Add new field"
+alembic upgrade head
+```
+
+## Features
+- OAuth Login (NYCU/CSIT)
+- Log Management System
+- Role-based Access
+
+## Tech Stack
+- Frontend: Vue.js
+- Backend: FastAPI
+- Database: MySQL
+
+## Deployment Instructions
 ```sh
 sudo su -
 cd /var/www
