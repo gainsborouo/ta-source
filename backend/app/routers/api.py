@@ -3,13 +3,16 @@ import time
 import glob
 import jwt
 import httpx
-import mysql.connector
 from passlib.context import CryptContext
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from typing import Optional
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy.orm import Session
+from fastapi import Depends
+from app.dependencies import get_db
+from app.models import User, Course
 from app.config import settings
 
 router = APIRouter()
@@ -22,58 +25,31 @@ def hash_password(password: str) -> str:
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
-def get_db_connection():
-    connection = mysql.connector.connect(
-        host=settings.MYSQL_HOST,
-        user=settings.MYSQL_USER,
-        password=settings.MYSQL_PASSWORD,
-        database=settings.MYSQL_DATABASE,
-    )
-    return connection
+def get_user_from_db(username: str, db: Session):
+    return db.query(User).filter(User.username == username).first()
 
-def get_user_from_db(username: str):
-    connection = get_db_connection()
-    cursor = connection.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
-    user = cursor.fetchone()
-    cursor.close()
-    connection.close()
-    return user
-
-def save_user_to_db(username: str, password: str, email: str, local: bool = False, admin: bool = False):
-    connection = get_db_connection()
-    cursor = connection.cursor()
-    
-    cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
-    existing_user = cursor.fetchone()
-
+def save_user_to_db(username: str, password: str, email: str, local: bool = False, admin: bool = False, db: Session = Depends(get_db)):
+    existing_user = db.query(User).filter(User.username == username).first()
     if existing_user:
-        cursor.close()
-        connection.close()
         return
     
     hashed_password = hash_password(password)
-    
-    cursor.execute(
-        "INSERT INTO users (username, password, email, local, admin) VALUES (%s, %s, %s, %s, %s)",
-        (username, hashed_password, email, local, admin),
+    new_user = User(
+        username=username,
+        password=hashed_password,
+        email=email,
+        local=local,
+        admin=admin
     )
-    connection.commit()
-    cursor.close()
-    connection.close()
+    db.add(new_user)
+    db.commit()
 
 
-def get_courses_from_db():
-    connection = get_db_connection()
-    cursor = connection.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM courses")
-    courses = cursor.fetchall()
-    cursor.close()
-    connection.close()
-    return courses
+def get_courses_from_db(db: Session):
+    return db.query(Course).all()
 
 @router.post("/login")
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = get_user_from_db(form_data.username)
         
     if not user:
@@ -95,8 +71,8 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
         )
     
     payload = {
-        "sub": user["username"],
-        "admin": bool(user["admin"]),
+        "sub": user.username,
+        "admin": bool(user.admin),
         "exp": int(time.time()) + settings.ACCESS_TOKEN_EXPIRE_SECONDS,
     }
     our_jwt_token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
@@ -119,7 +95,7 @@ async def oauth_nycu_login():
     return RedirectResponse(url=auth_url)
 
 @router.get("/oauth/nycu/callback")
-async def oauth_nycu_callback(code: str):
+async def oauth_nycu_callback(code: str, db: Session = Depends(get_db)):
     async with httpx.AsyncClient(verify=False) as client:
         data = {
             "grant_type": "authorization_code",
@@ -149,12 +125,12 @@ async def oauth_nycu_callback(code: str):
     if not student_id or not user_email:
         raise HTTPException(status_code=400, detail="Incomplete user information")
     
-    save_user_to_db(student_id, "", user_email, local=False, admin=False)
-    user_in_db = get_user_from_db(student_id)
+    save_user_to_db(student_id, "", user_email, local=False, admin=False, db=db)
+    user_in_db = get_user_from_db(student_id, db)
     
     payload = {
-        "sub": user_in_db["username"],
-        "admin": bool(user_in_db["admin"]),
+        "sub": user_in_db.username,
+        "admin": bool(user_in_db.admin),
         "exp": int(time.time()) + settings.ACCESS_TOKEN_EXPIRE_SECONDS,
     }
     our_jwt_token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
@@ -175,7 +151,7 @@ async def oauth_csit_login():
     return RedirectResponse(url=auth_url)
 
 @router.get("/oauth/csit/callback")
-async def oauth_csit_callback(code: str):
+async def oauth_csit_callback(code: str, db: Session = Depends(get_db)):
     async with httpx.AsyncClient(verify=False) as client:
         data = {
             "grant_type": "authorization_code",
@@ -205,12 +181,12 @@ async def oauth_csit_callback(code: str):
     if not student_id:
         raise HTTPException(status_code=400, detail="Incomplete user information")
     
-    save_user_to_db(student_id, "", "", local=False, admin=False)
-    user_in_db = get_user_from_db(student_id)
+    save_user_to_db(student_id, "", "", local=False, admin=False, db=db)
+    user_in_db = get_user_from_db(student_id, db)
     
     payload = {
-        "sub": user_in_db["username"],
-        "admin": bool(user_in_db["admin"]),
+        "sub": user_in_db.username,
+        "admin": bool(user_in_db.admin),
         "exp": int(time.time()) + settings.ACCESS_TOKEN_EXPIRE_SECONDS,
     }
     our_jwt_token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
@@ -218,20 +194,20 @@ async def oauth_csit_callback(code: str):
     front_end_redirect_url = f"{settings.FRONTEND_URL}{settings.FRONTEND_REDIRECT_PATH}?token={our_jwt_token}"
     return RedirectResponse(url=front_end_redirect_url)
 
-def get_current_user(token: str = Depends(oauth2_scheme)):
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
         student_id = payload.get("sub")
         if student_id is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
 
-        user = get_user_from_db(student_id)
+        user = get_user_from_db(student_id, db)
         if not user:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found in DB")
 
         return {
-            "username": user["username"],
-            "admin": user["admin"],
+            "username": user.username,
+            "admin": user.admin,
             "exp": payload.get("exp"),
         }
     except jwt.ExpiredSignatureError:
@@ -283,8 +259,8 @@ async def get_course_log(course: str, filename: str, current_user: dict = Depend
     return {"filename": filename, "content": content}
 
 @router.get("/courses")
-async def get_courses(current_user: dict = Depends(get_current_user)):
-    courses = get_courses_from_db()
+async def get_courses(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    courses = get_courses_from_db(db)
     if not courses:
         raise HTTPException(status_code=404, detail="No courses found")
     return courses
