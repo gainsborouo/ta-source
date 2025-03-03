@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from app.routers.api import router
+from app.config import settings
 
 app = FastAPI(
     title="TA System Backend API",
@@ -22,6 +24,12 @@ app = FastAPI(
 #     allow_methods=["*"],
 #     allow_headers=["*"],
 # )
+
+app.add_middleware(
+    SessionMiddleware, 
+    secret_key=settings.SECRET_KEY,
+    session_cookie="session"
+)
 
 # app.mount("/static", StaticFiles(directory="app/static"), name="static")
 

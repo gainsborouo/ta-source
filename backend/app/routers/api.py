@@ -3,6 +3,8 @@ import time
 import glob
 import jwt
 import httpx
+import uuid
+import secrets
 from passlib.context import CryptContext
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from typing import Optional
@@ -10,14 +12,20 @@ from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-from fastapi import Depends
+from fastapi import Depends, Cookie, Form, Request
+from starlette.middleware.sessions import SessionMiddleware
+from pathlib import Path
 from app.dependencies import get_db
 from app.models import User, Course
 from app.config import settings
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/token")
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+    bcrypt__rounds=12
+)
 
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
@@ -49,31 +57,37 @@ def get_courses_from_db(db: Session):
     return db.query(Course).all()
 
 @router.post("/login")
-async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+async def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db)
+):
     user = get_user_from_db(form_data.username, db)
-        
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid username or password"
+            detail="Invalid credentials"
         )
-    
+
     if not user.local:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Local login not allowed"
+            detail="Invalid credentials"
         )
-    
+
     if not verify_password(form_data.password, user.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid username or password"
+            detail="Invalid credentials"
         )
-    
+
     payload = {
         "sub": user.username,
         "admin": bool(user.admin),
         "exp": int(time.time()) + settings.ACCESS_TOKEN_EXPIRE_SECONDS,
+        "iat": int(time.time()),
+        "iss": "ta-system",
+        "jti": str(uuid.uuid4()), 
     }
     our_jwt_token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
     
@@ -83,19 +97,37 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
     }
 
 @router.get("/oauth/nycu/login")
-async def oauth_nycu_login():
+async def oauth_nycu_login(request: Request):
+    csrf_token = secrets.token_urlsafe(32)
+    request.session['csrf_token'] = csrf_token
+    
     scopes = "profile"
     auth_url = (
         f"{settings.NYCU_AUTHORIZE_URL}"
         f"?client_id={settings.NYCU_CLIENT_ID}"
         f"&response_type=code"
+        f"&state={csrf_token}"
         f"&scope={scopes.replace(' ', '%20')}"
         f"&redirect_uri={settings.NYCU_REDIRECT_URI}"
     )
     return RedirectResponse(url=auth_url)
 
 @router.get("/oauth/nycu/callback")
-async def oauth_nycu_callback(code: str, db: Session = Depends(get_db)):
+async def oauth_nycu_callback(
+    request: Request,
+    code: str,
+    state: str,
+    db: Session = Depends(get_db)
+):
+    stored_csrf_token = request.session.get('csrf_token')
+    if not stored_csrf_token or stored_csrf_token != state:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid CSRF token"
+        )
+    
+    request.session.pop('csrf_token', None)
+    
     async with httpx.AsyncClient(verify=False) as client:
         data = {
             "grant_type": "authorization_code",
@@ -132,6 +164,9 @@ async def oauth_nycu_callback(code: str, db: Session = Depends(get_db)):
         "sub": user_in_db.username,
         "admin": bool(user_in_db.admin),
         "exp": int(time.time()) + settings.ACCESS_TOKEN_EXPIRE_SECONDS,
+        "iat": int(time.time()),
+        "iss": "ta-system",
+        "jti": str(uuid.uuid4()), 
     }
     our_jwt_token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
     
@@ -139,19 +174,37 @@ async def oauth_nycu_callback(code: str, db: Session = Depends(get_db)):
     return RedirectResponse(url=front_end_redirect_url)
 
 @router.get("/oauth/csit/login")
-async def oauth_csit_login():
+async def oauth_csit_login(request: Request):
+    csrf_token = secrets.token_urlsafe(32)
+    request.session['csrf_token'] = csrf_token
+    
     scopes = "csid"
     auth_url = (
         f"{settings.CSIT_AUTHORIZE_URL}"
         f"?client_id={settings.CSIT_CLIENT_ID}"
         f"&response_type=code"
+        f"&state={csrf_token}"
         f"&scope={scopes.replace(' ', '%20')}"
         f"&redirect_uri={settings.CSIT_REDIRECT_URI}"
     )
     return RedirectResponse(url=auth_url)
 
 @router.get("/oauth/csit/callback")
-async def oauth_csit_callback(code: str, db: Session = Depends(get_db)):
+async def oauth_csit_callback(
+    request: Request,
+    code: str,
+    state: str,
+    db: Session = Depends(get_db)
+):
+    stored_csrf_token = request.session.get('csrf_token')
+    if not stored_csrf_token or stored_csrf_token != state:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid CSRF token"
+        )
+    
+    request.session.pop('csrf_token', None)
+    
     async with httpx.AsyncClient(verify=False) as client:
         data = {
             "grant_type": "authorization_code",
@@ -188,6 +241,9 @@ async def oauth_csit_callback(code: str, db: Session = Depends(get_db)):
         "sub": user_in_db.username,
         "admin": bool(user_in_db.admin),
         "exp": int(time.time()) + settings.ACCESS_TOKEN_EXPIRE_SECONDS,
+        "iat": int(time.time()),
+        "iss": "ta-system",
+        "jti": str(uuid.uuid4()), 
     }
     our_jwt_token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
     
@@ -249,11 +305,22 @@ async def get_course_log(course: str, filename: str, current_user: dict = Depend
         if student_id not in filename:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
 
-    filepath = os.path.join("app", "static", "logs", course, filename)
-    if not os.path.exists(filepath):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+    if '..' in filename or filename.startswith('/'):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Invalid filename"
+        )
 
-    with open(filepath, "r", encoding="utf-8") as f:
+    base_path = Path("app/static/logs").resolve()
+    file_path = (base_path / course / filename).resolve()
+
+    if not str(file_path).startswith(str(base_path)):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file path"
+        )
+
+    with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
 
     return {"filename": filename, "content": content}
