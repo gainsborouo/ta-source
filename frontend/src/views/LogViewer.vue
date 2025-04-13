@@ -115,40 +115,12 @@
         <span class="text-base font-medium truncate max-w-[80%]">{{
           selectedLogFile
         }}</span>
-        <div class="flex items-center">
-          <button
-            class="text-gray-600 hover:text-gray-800 mr-4"
-            @click="downloadLog"
-            title="Download log file"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-              />
-            </svg>
-          </button>
-          <button
-            class="text-3xl leading-none text-gray-600 hover:text-gray-800"
-            @click="closeModal"
-          >
-            &times;
-          </button>
-        </div>
-        <!-- <button
+        <button
           class="text-3xl leading-none text-gray-600 hover:text-gray-800"
           @click="closeModal"
         >
           &times;
-        </button> -->
+        </button>
       </div>
       <div
         class="absolute inset-x-0 bottom-0 top-[5rem] overflow-y-auto border border-gray-300 bg-gray-100 m-4 mt-0 rounded p-4"
